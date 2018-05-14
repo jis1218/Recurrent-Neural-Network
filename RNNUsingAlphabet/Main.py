@@ -32,7 +32,7 @@ if __name__ == '__main__':
     y = tf.placeholder(tf.int32, [None, sequence_length])
     
     cell = tf.contrib.rnn.BasicLSTMCell(num_units=hidden_size, state_is_tuple=True)
-    initial_state = cell.zero_state(batch_size, tf.float32)
+    initial_state = cell.zero_state(batch_size, tf.float32) #LSTM에서 특정 메모리 셀이 유지되어야 하는지에 대한 비트 텐서가 필요하다.
     output, _states = tf.nn.dynamic_rnn(cell, x, initial_state=initial_state, dtype=tf.float32)
     weights = tf.ones([batch_size, sequence_length])
     
