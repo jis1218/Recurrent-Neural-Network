@@ -25,3 +25,6 @@ output, _states = tf.nn.dynamic_rnn(cell, x, initial_state=initial_state, dtype=
 > ##### 이것이 그냥 RNN을 쓰는 것보다 나은 이유는 상태 백터의 상호작용은 기본적으로 시간에 따라 선형적이며 그 결과는 과거 몇몇 시간 단계에서 입력과 기본 RNN 구조처럼 크게 감쇄하지 않는 현재 출력을 연관시키는 경사이다. 이것은 LSTM이 RNN의 원래 체계보다 훨씬 더 효과적으로 장기적인 관계들을 학습할 수 있음을 의미한다.
 
 > ### GRU(Gated Recurrent Units) - 2014년 요수아 벤지오의 그룹에서 제안한 LSTM유닛의 변형
+
+##### 참고 자료
+https://dgkim5360.tistory.com/entry/understanding-long-short-term-memory-lstm-kr

@@ -70,19 +70,22 @@ def lossFun(inputs, targets, hprev):
         np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients
     return loss, dWxh, dWhh, dWhy, dbh, dby, hs[len(inputs)-1]
 
-def sample(h, seed_ix, n):
+def sample(h, seed_index, n):
     x = np.zeros((vocab_size, 1))
-    x[seed_ix] = 1
-    ixes = []
+    x[seed_index] = 1
+    result = [] #result
     for t in range(n):
-        h = np.tanh(np.dot(Wxh, x) + np.dot(Whh, h) + bh)
-        y = np.dot(Why, h) + by
-        p = np.exp(y) / np.sum(np.exp(y))
-        ix = np.random.choice(range(vocab_size), p=p.ravel())
+        h = np.tanh(np.dot(Wxh, x) + np.dot(Whh, h) + bh) #shape = (hidden_size, 1)
+        y = np.dot(Why, h) + by #shape = (words_count, 1)
+        p = np.exp(y) / np.sum(np.exp(y)) #shape = (words_count, 1)
+        ix = np.random.choice(range(vocab_size), p=p.ravel()) # p parameter는 probabilities를 제공한다.
+        #print(ix)
+        #다음 index를 만들어준다.
         x = np.zeros((vocab_size, 1))
         x[ix] = 1
-        ixes.append(ix)
-    return ixes
+        # 결과를 만들어준다.
+        result.append(ix)
+    return result
 
 n, p = 0, 0
 mWxh, mWhh, mWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
@@ -105,6 +108,7 @@ while True:
         print ('----\n %s \n----' % (txt, ))
     
     loss, dWxh, dWhh, dWhy, dbh, dby, hprev = lossFun(inputs, targets, hprev)
+    # loss가 천천히 되도록 해주는 장치인 것 같다.
     smooth_loss = smooth_loss * 0.999 + loss * 0.001
     if n % 100 == 0: print ('iter %d, loss: %f' % (n, smooth_loss)) # print progress
     #if n % 100 == 0: print ('abc') # print progress
