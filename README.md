@@ -26,5 +26,104 @@ output, _states = tf.nn.dynamic_rnn(cell, x, initial_state=initial_state, dtype=
 
 > ### GRU(Gated Recurrent Units) - 2014년 요수아 벤지오의 그룹에서 제안한 LSTM유닛의 변형
 
+##### LSTM 참고자료
+https://ratsgo.github.io/natural%20language%20processing/2017/03/09/rnnlstm/
+http://blog.varunajayasiri.com/numpy_lstm.html
+
+##### 위 두 블로그를 비교해보면 Weight을 주는 방법이 다르다.
+##### 첫번째는 기존의 RNN처럼 각 state 사이에 weight이 있는 반면
+##### 두번째는 각 gate 마다 weight이 있어 기존 RNN의 weight의 개수보다 많다.
+##### 첫번째 예시는 벡터의 차원이 맞지 않고 억지로 끼워 맞추더라도 학습이 되지가 않았다.
+```python
+def lossFun(inputs, targets, hprev, cprev):
+    xs, hs, cs, is_, fs, os, gs, ys, ps= {}, {}, {}, {}, {}, {}, {}, {}, {}
+    hs[-1] = np.copy(hprev) # t=0일때 t-1 시점의 hidden state가 필요하므로
+    cs[-1] = np.copy(cprev)
+    loss = 0
+    H = hidden_size
+    # forward pass
+    for t in range(len(inputs)):
+        xs[t] = np.zeros((vocab_size, 1)) #(29, 1)
+        xs[t][inputs[t]] = 1
+        #print('t = ', t)
+        # Wxh (100, 29), xs[t] (29, 1), Whh (100, 100), hs[t-1] (100, 1)
+        #print(np.shape(Wxh))
+        #print(np.shape(xs[t]))
+        #print(np.shape(Whh))
+        #print(np.shape(hs[t-1]))
+        tmp = np.dot(Wxh, xs[t]) + np.dot(Whh, hs[t - 1]) + bh  # temp(100, 1)
+        #print(np.shape(tmp))
+        is_[t] = sigmoid(tmp[:H])
+        fs[t] = sigmoid(tmp[:H])
+        os[t] = sigmoid(tmp[:H])
+        gs[t] = np.tanh(tmp[:H])
+        cs[t] = fs[t] * cs[t-1] + is_[t] * gs[t]
+        hs[t] = os[t] * np.tanh(cs[t])
+
+    # compute loss
+    #len(targets) : 25
+    for i in range(len(targets)):
+        idx = len(inputs) - len(targets) + i
+        #print('idx = ', idx)
+        ys[idx] = np.dot(Why, hs[idx]) + by  # unnormalized log probabilities for next chars
+        #print(np.shape(ys[idx])) #(29, 1)
+        #softmax
+        ps[idx] = np.exp(ys[idx]) / np.sum(np.exp(ys[idx]))  # probabilities for next chars
+        #cross-entropy error
+        #print(np.shape(ps[idx])) #(29, 1)
+        loss += -np.log(ps[idx][targets[i], 0])  # softmax (cross-entropy loss)
+
+    # backward pass: compute gradients going backwards
+    dWxh, dWhh, dWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
+    dbh, dby = np.zeros_like(bh), np.zeros_like(by)
+    dhnext, dcnext = np.zeros_like(hs[0]), np.zeros_like(cs[0])
+    n = 1
+    a = len(targets) - 1
+    #print('len(inputs)',len(inputs))
+    for t in reversed(range(len(inputs))): #len(inputs) = 25, 25번 동안 W와 같은 변수들 계속 공유
+        if n > len(targets):
+            continue
+        dy = np.copy(ps[t])
+        dy[targets[a]] -= 1  # backprop into y
+        dWhy += np.dot(dy, hs[t].T)
+        dby += dy
+        dh = np.dot(Why.T, dy) + dhnext  # backprop into h
+        dc = dcnext + (1 - np.tanh(cs[t]) * np.tanh(cs[t])) * dh * os[t]  # backprop through tanh nonlinearity
+        dcnext = dc * fs[t]
+        di = dc * gs[t]
+        df = dc * cs[t-1]
+        do = dh * np.tanh(cs[t])
+        dg = dc * is_[t]
+        ddi = (1 - is_[t]) * is_[t] * di
+        ddf = (1 - fs[t]) * fs[t] * df
+        ddo = (1 - os[t]) * os[t] * do
+        ddg = (1 - gs[t]**2) * dg
+        #print('ddi sahpe = ', np.shape(ddi))
+        #print('ddf sahpe = ', np.shape(ddf))
+        #print('ddo sahpe = ', np.shape(ddo))
+        #print('ddg sahpe = ', np.shape(ddg))
+        #print('ddi ravel = ', np.shape(ddi.ravel()))
+        #da = np.hstack((ddi.ravel(),ddf.ravel(),ddo.ravel(),ddg.ravel()))
+        da = np.add(np.add(ddi.ravel(), ddf.ravel()), np.add(ddo.ravel(), ddg.ravel()))/4
+        #print('da shpe = ', np.shape(da))
+        dWxh += np.dot(da[:,np.newaxis],xs[t].T)
+        dWhh += np.dot(da[:,np.newaxis],hs[t-1].T)
+        dbh += da[:, np.newaxis]
+        dhnext = np.dot(Whh.T, da[:, np.newaxis])
+        n += 1
+        a -= 1
+
+    for dparam in [dWxh, dWhh, dWhy, dbh, dby]:
+        np.clip(dparam, -5, 5, out=dparam)  # clip to mitigate exploding gradients
+
+    return loss, dWxh, dWhh, dWhy, dbh, dby, hs[len(inputs) - 1], cs[len(inputs) - 1]
+```
+
+##### 두번째 예시는 확인 필요
+
 ##### 참고 자료
 https://dgkim5360.tistory.com/entry/understanding-long-short-term-memory-lstm-kr
+https://skymind.ai/kr/wiki/lstm#long
+https://github.com/nicodjimenez/lstm/blob/master/lstm.py
+http://docs.likejazz.com/lstm/
+http://blog.varunajayasiri.com/numpy_lstm.html
